@@ -1,0 +1,6 @@
+.cpcache
+.calva/output-window
+.shadow-cljs
+resources/public/js
+.lsp
+.nrepl-port
