@@ -9,7 +9,7 @@
                   :db/cardinality :db.cardinality/many}
    :vote/room {:db/type :db.type/ref
                :db/cardinality :db.cardinality/one}
-   :vote/user {:db/type :db.typf
+   :vote/user {:db/type :db.type/ref
                :db/cardinality :db.cardinality/one}})
 
 (defstate conn 
@@ -32,9 +32,9 @@
         user-id (:user/id payload)
         choice (:choice payload)]
     (d/transact! conn [{:db/id -1
-                       :vote/room [:room/id room-id]
-                       :vote/choice choice
-                       :vote/user [:user/id user-id]}])))
+                        :vote/room [:room/id room-id]
+                        :vote/choice choice
+                        :vote/user [:user/id user-id]}])))
 
 (defn get-results [{:room/keys [id]}]
   (vec
@@ -56,10 +56,28 @@
          [?u :user/id ?uid]]
        @conn id))
 
+(defn get-user-state [payload]
+  (let [room-id (:room/id payload)
+        user-id (:user/id payload)
+        choice (d/q '[:find ?c .
+                      :in $ ?uid ?rid
+                      :where
+                      [?u :user/id ?uid]
+                      [?r :room/id ?rid]
+                      [?v :vote/user ?u]
+                      [?v :vote/room ?r]
+                      [?v :vote/choice ?c]]
+                    @conn user-id room-id)]
+    {:choice choice
+     :submitted? (not (nil? choice))}))
+
 (comment
   @conn
 
   (get-members {:room/id "auto-join"})
+
+  (get-user-state {:room/id "auto-join"
+                   :user/id (first (get-members {:room/id "auto-join"}))})
 
   (d/transact! conn [{:user/id "user-id"}
                      {:room/id "room-id"
@@ -80,9 +98,9 @@
     (join-room! {:room/id  room-id
                  :user/id "jack"}))
 
-    (vote! {:user/id "adrian" :room/id room-id :choice "C"})
-    (vote! {:user/id "jack" :room/id room-id :choice "A"})
-    (get-results {:room-id "auto-join"})
+  (vote! {:user/id "adrian" :room/id room-id :choice "C"})
+  (vote! {:user/id "jack" :room/id room-id :choice "A"})
+  (get-results {:room-id "auto-join"})
 
   (d/q '[:find [(pull ?r [* {:room/members [*]}]) ...]
          :where

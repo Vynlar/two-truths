@@ -14,8 +14,7 @@
 (let [{:keys [ch-recv send-fn connected-uids
               ajax-post-fn ajax-get-or-ws-handshake-fn]}
       (sente/make-channel-socket! (get-sch-adapter)
-                                  {:csrf-token-fn nil
-                                   :user-id-fn (fn [_] (str (java.util.UUID/randomUUID)))})]
+                                  {:csrf-token-fn nil})]
   (def ring-ajax-post ajax-post-fn)
   (def ring-ajax-get-or-ws-handshake ajax-get-or-ws-handshake-fn)
   (def ch-chsk ch-recv)
@@ -28,12 +27,22 @@
   (POST "/chsk" req (ring-ajax-post req))
   (route/not-found "not found!"))
 
+(defn wrap-add-uid [handler]
+  (fn [request]
+    (let [response (handler request)
+          old-uid (get-in request [:session :uid])]
+
+      (if old-uid
+        response
+        (assoc-in response [:session] {:uid (str (java.util.UUID/randomUUID))})))))
+
 (def app
   (-> app-routes
+      (wrap-resource "public")
+      wrap-add-uid
       wrap-keyword-params
       wrap-params
-      wrap-session
-      (wrap-resource "public")))
+      wrap-session))
 
 (defstate cancel-ch
   :start (chan))
@@ -85,21 +94,24 @@
 
   (go (println "kenny" (<! vote-ch))))
 
-
 (defstate event-processor
   :start
   (go-loop []
     (alt!
       cancel-ch :noop
-      ch-chsk ([{:keys [event uid]}]
+      ch-chsk ([{:keys [event uid ?reply-fn]}]
                (let [[event-key event-payload] event
                      room-id (:room/id event-payload)]
                  (println "Processing event: " event-key)
+                 (println rest)
                  (case event-key
                    :room/join
                    (do
                      (db/join-room! {:room/id room-id
                                      :user/id uid})
+                     (when ?reply-fn
+                       (?reply-fn {:user-state (db/get-user-state {:user/id uid
+                                                                   :room/id room-id})}))
                      (>! broadcast-ch {:room/id room-id}))
 
 

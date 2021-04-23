@@ -1,23 +1,29 @@
 (ns app.ws-client
   (:require [taoensso.sente :as sente]
-            [clojure.core.async :refer [go-loop chan >! <!]]))
+            [clojure.core.async :refer [go-loop go chan >! <!]]))
 
 (let [{:keys [send-fn ch-recv]}
       (sente/make-channel-socket-client! "/chsk" {:type :auto})]
   (def chsk-send! send-fn)
   (def ch-recv ch-recv))
 
+(def result-ch (chan))
+(def user-state-ch (chan))
+
 (defn join [room-id]
   (js/console.log "Joining " room-id)
   (chsk-send!
-   [:room/join {:room/id room-id}]))
+   [:room/join {:room/id room-id}]
+   5000
+   (fn [reply]
+     (when (sente/cb-success? reply)
+       (go (>! user-state-ch reply))))))
 
 (defn vote [room-id choice]
   (js/console.log "Sending vote: " choice " in room " room-id)
   (chsk-send!
    [:room/vote {:room/id room-id :choice choice}]))
 
-(def result-ch (chan))
 
 (go-loop []
   (let [{:keys [event]} (<! ch-recv)
@@ -29,6 +35,7 @@
                     (if (:first-open? payload)
                       (join "auto-join")
                       (recur)))
+
       :chsk/recv (case event-key
                    :room/result (>! result-ch payload)
                    nil)

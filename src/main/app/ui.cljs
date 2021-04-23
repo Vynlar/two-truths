@@ -1,12 +1,12 @@
 (ns app.ui
   (:require [reagent.core :as r]
-            [clojure.core.async :refer [go-loop <!]]
-            [app.ws-client :refer [result-ch vote]]))
+            [clojure.core.async :refer [go-loop alt!]]
+            [app.ws-client :refer [result-ch user-state-ch vote]]))
 
 (defn get-max-result [results]
   (apply max (map :count results)))
 
-(defn ui-results [results my-choice]
+(defn ui-results [results choice]
   (let [max-result (get-max-result results)]
     [:div {:class "max-w-md w-full"}
      [:ul {:class "w-full space-y-3"}
@@ -23,7 +23,7 @@
               [:span {:class "relative z-20"}
                [:span  (str choice)]
                [:span {:class "z-10 ml-2 opacity-70"} (str count)]
-               (if (= my-choice choice)
+               (if (= choice choice)
                  [:span {:class "ml-2 z-10 relative"} "★"])]])
            (sort-by :choice results))]
      [:div {:class "text-gray-400 text-xs uppercase mt-3"} "★ your vote"]]))
@@ -39,18 +39,25 @@
                 :class "bg-pink-500 text-3xl text-white font-bold rounded-lg shadow-lg py-5 px-6
                         hover:bg-pink-600 border-2 border-pink-300"} option])]])
 
-(defonce state (r/atom {:result [] :submitted? false}))
+(defonce state (r/atom {:result [] :loaded? false}))
 
 (defn root []
   (go-loop []
-    (let [result (<! result-ch)]
-      (swap! state assoc :result result))
+    (alt!
+      result-ch ([result]
+                 (swap! state assoc :result result))
+      user-state-ch ([{:keys [user-state]}]
+                     (swap! state (fn [s] (-> s
+                                              (merge user-state)
+                                              (assoc :loaded? true))))))
     (recur))
 
   (fn []
     [:div {:class "flex min-h-screen items-center justify-center bg-gradient-to-b from-pink-100 via-white to-purple-100"}
-     (if (:submitted? @state)
-       [ui-results (:result @state) (:my-choice @state)]
-       [ui-vote {:on-submit #(do
-                               (vote "auto-join" %1)
-                               (swap! state merge {:submitted? true :my-choice %1}))}])]))
+    (if-not (:loaded? @state)
+      [:div]
+      (if (:submitted? @state)
+        [ui-results (:result @state) (:choice @state)]
+        [ui-vote {:on-submit #(do
+                                (vote "auto-join" %1)
+                                (swap! state merge {:submitted? true :choice %1}))}]))]))
