@@ -10,19 +10,24 @@
 (def result-ch (chan))
 (def user-state-ch (chan))
 
+(defn handle-user-state-reply [reply]
+  (when (sente/cb-success? reply)
+    (js/console.log "Got user state" reply)
+    (go (>! user-state-ch reply))))
+
 (defn join [room-id]
   (js/console.log "Joining " room-id)
   (chsk-send!
    [:room/join {:room/id room-id}]
    5000
-   (fn [reply]
-     (when (sente/cb-success? reply)
-       (go (>! user-state-ch reply))))))
+   handle-user-state-reply))
 
 (defn vote [room-id choice]
   (js/console.log "Sending vote: " choice " in room " room-id)
   (chsk-send!
-   [:room/vote {:room/id room-id :choice choice}]))
+   [:room/vote {:room/id room-id :choice choice}]
+   5000
+   handle-user-state-reply))
 
 
 (go-loop []

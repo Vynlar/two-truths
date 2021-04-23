@@ -6,7 +6,7 @@
 (defn get-max-result [results]
   (apply max (map :count results)))
 
-(defn ui-results [results choice]
+(defn ui-results [results my-choice]
   (let [max-result (get-max-result results)]
     [:div {:class "max-w-md w-full"}
      [:ul {:class "w-full space-y-3"}
@@ -23,7 +23,7 @@
               [:span {:class "relative z-20"}
                [:span  (str choice)]
                [:span {:class "z-10 ml-2 opacity-70"} (str count)]
-               (if (= choice choice)
+               (if (= my-choice choice)
                  [:span {:class "ml-2 z-10 relative"} "★"])]])
            (sort-by :choice results))]
      [:div {:class "text-gray-400 text-xs uppercase mt-3"} "★ your vote"]]))
@@ -59,5 +59,4 @@
       (if (:submitted? @state)
         [ui-results (:result @state) (:choice @state)]
         [ui-vote {:on-submit #(do
-                                (vote "auto-join" %1)
-                                (swap! state merge {:submitted? true :choice %1}))}]))]))
+                                (vote "auto-join" %1))}]))]))

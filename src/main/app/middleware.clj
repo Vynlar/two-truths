@@ -75,25 +75,6 @@
                                 [:room/result (db/get-results payload)])
                     (recur)))))
 
-(defstate vote-processor
-  :start
-  (go-loop []
-    (alt!
-      cancel-ch :noop
-      vote-ch ([payload]
-               (println "Processing vote" payload)
-               (db/vote! payload)
-               (>! broadcast-ch payload)
-               (recur)))))
-
-(comment
-  (+ 2 3)
-
-  (go (>! vote-ch {:user/id "my-user" :room/id "auto-join" :choice "F"}))
-  (go (>! cancel-ch {}))
-
-  (go (println "kenny" (<! vote-ch))))
-
 (defstate event-processor
   :start
   (go-loop []
@@ -103,7 +84,6 @@
                (let [[event-key event-payload] event
                      room-id (:room/id event-payload)]
                  (println "Processing event: " event-key)
-                 (println rest)
                  (case event-key
                    :room/join
                    (do
@@ -116,9 +96,16 @@
 
 
                    :room/vote
-                   (>! vote-ch {:user/id uid
-                                :room/id room-id
-                                :choice (:choice event-payload)})
+                   (let [payload {:user/id uid
+                                  :room/id room-id
+                                  :choice (:choice event-payload)}]
+                     (db/vote! payload)
+                     (>! broadcast-ch payload)
+                     (when ?reply-fn
+                       (?reply-fn {:user-state (db/get-user-state {:user/id uid
+                                                                   :room/id room-id})})))
+
+
 
                    :chsk/uidport-open
                    (db/add-user! {:user/id uid})
