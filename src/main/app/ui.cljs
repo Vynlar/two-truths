@@ -3,6 +3,8 @@
             [clojure.core.async :refer [go-loop alt!]]
             [app.ws-client :refer [result-ch user-state-ch vote]]))
 
+(def options ["A" "B" "C"])
+
 (defn get-max-result [results]
   (apply max (map :count results)))
 
@@ -10,29 +12,36 @@
   (let [max-result (get-max-result results)]
     [:div {:class "max-w-md w-full"}
      [:ul {:class "w-full space-y-3"}
-      (map (fn [{:keys [choice count]}]
-             ^{:key choice}
-             [:li {:class "relative w-full bg-white py-3 
+      (for [option options]
+        (let [count (or (:count (first (filter
+                                        (fn [result] (= (:choice result) option))
+                                        results))) 
+                        0)
+              percent (* 100 (/ count max-result))]
+          ^{:key option}
+          [:li {:class "relative w-full bg-white h-12 flex items-center
                           px-4 text-white font-bold rounded-lg overflow-hidden shadow-lg"}
-              [:div {:class "absolute bg-gradient-to-r from-pink-600 to-pink-500 
-                            h-full w-full top-0 left-0 z-10 transition duration-500"
-                     :style {:transform (str "scaleX(" (/ count max-result) ")")
-                             :transform-origin "0 0"}}]
+           [:div {:class "absolute bg-gradient-to-r from-pink-600 to-pink-500 flex items-center
+                            h-full w-full top-0 left-0 z-20 transition-all duration-500 px-4"
+                  :style {:clip-path (str "polygon(0% 0%, " percent "% 0%, " percent "% 100%, 0% 100%)")}}
+            [:span {:class "absolute z-30"}
+             [:span  (str option)]
+             [:span {:class "z-10 ml-2 opacity-70"} (str count)]
+             (when (= my-choice option)
+               [:span {:class "ml-2 relative"} "★"])]]
 
-
-              [:span {:class "relative z-20"}
-               [:span  (str choice)]
-               [:span {:class "z-10 ml-2 opacity-70"} (str count)]
-               (if (= my-choice choice)
-                 [:span {:class "ml-2 z-10 relative"} "★"])]])
-           (sort-by :choice results))]
+           [:span {:class "absolute z-10 text-black"}
+            [:span  (str option)]
+            [:span {:class "z-10 ml-2 opacity-70"} (str count)]
+            (when (= my-choice option)
+              [:span {:class "ml-2 z-10 relative"} "★"])]]))]
      [:div {:class "text-gray-400 text-xs uppercase mt-3"} "★ your vote"]]))
 
 (defn ui-vote [{:keys [on-submit]}]
   [:div.space-y-2.text-gray-500
    [:h1 {:class "font-bold text-center"} "Which is the lie?"]
    [:div {:class "space-x-3"}
-    (for [option ["A" "B" "C"]]
+    (for [option options]
       ^{:key option}
       [:button {:on-click #(on-submit option)
                 :aria-label (str "Vote for option " option)
