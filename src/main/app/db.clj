@@ -71,8 +71,20 @@
     {:choice choice
      :submitted? (not (nil? choice))}))
 
+(defn clear-room [{:room/keys [id]}]
+  (let [vote-ids (d/q '[:find [?v ...]
+                        :in $ ?rid
+                        :where
+                        [?r :room/id ?rid]
+                        [?v :vote/room ?r]]
+                      @conn id)]
+    (d/transact! conn
+                 (vec (map (fn [vid] [:db.fn/retractEntity vid]) vote-ids)))))
+
 (comment
   @conn
+
+  (clear-room {:room/id "auto-join"})
 
   (get-members {:room/id "auto-join"})
 

@@ -74,6 +74,11 @@
                     (println "Broadcasting" payload)
                     (broadcast! (db/get-members payload)
                                 [:room/result (db/get-results payload)])
+                    (doseq [uid (db/get-members payload)]
+                      (chsk-send! uid [:room/user-state
+                                       {:user-state
+                                        (db/get-user-state {:user/id uid
+                                                            :room/id (:room/id payload)})}]))
                     (recur)))))
 
 (defstate event-processor
@@ -105,6 +110,11 @@
                      (when ?reply-fn
                        (?reply-fn {:user-state (db/get-user-state {:user/id uid
                                                                    :room/id room-id})})))
+
+                   :room/clear
+                   (do
+                     (db/clear-room {:room/id room-id})
+                     (>! broadcast-ch {:room/id room-id}))
 
 
 

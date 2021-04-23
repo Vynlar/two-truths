@@ -29,6 +29,9 @@
    5000
    handle-user-state-reply))
 
+(defn clear-room [room-id]
+  (chsk-send!
+   [:room/clear {:room/id room-id}]))
 
 (go-loop []
   (let [{:keys [event]} (<! ch-recv)
@@ -43,6 +46,7 @@
 
       :chsk/recv (case event-key
                    :room/result (>! result-ch payload)
+                   :room/user-state (>! user-state-ch payload)
                    nil)
 
       nil)
@@ -51,5 +55,5 @@
 
 (comment
   (join "room-3")
-
+  (clear-room "auto-join")
   (vote "auto-join" "A"))
