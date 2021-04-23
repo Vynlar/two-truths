@@ -1,7 +1,7 @@
 (ns app.ui
   (:require [reagent.core :as r]
             [clojure.core.async :refer [go-loop alt!]]
-            [app.ws-client :refer [result-ch user-state-ch vote]]))
+            [app.ws-client :refer [result-ch user-state-ch vote clear-room]]))
 
 (def options ["A" "B" "C"])
 
@@ -15,7 +15,7 @@
       (for [option options]
         (let [count (or (:count (first (filter
                                         (fn [result] (= (:choice result) option))
-                                        results))) 
+                                        results)))
                         0)
               percent (* 100 (/ count max-result))]
           ^{:key option}
@@ -35,7 +35,10 @@
             [:span {:class "z-10 ml-2 opacity-70"} (str count)]
             (when (= my-choice option)
               [:span {:class "ml-2 z-10 relative"} "★"])]]))]
-     [:div {:class "text-gray-400 text-xs uppercase mt-3"} "★ your vote"]]))
+     [:div {:class "flex justify-between items-center mt-3"}
+      [:div {:class "text-gray-400 text-xs uppercase"} "★ your vote"]
+      [:button {:class "uppercase font-bold text-gray-500 text-sm hover:text-red-500"
+                :on-click #(clear-room "auto-join")} "Reset"]]]))
 
 (defn ui-vote [{:keys [on-submit]}]
   [:div.space-y-2.text-gray-500
