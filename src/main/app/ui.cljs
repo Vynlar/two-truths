@@ -9,7 +9,7 @@
   (apply max (map :count results)))
 
 (defn ui-results [results my-choice]
-  (let [max-result (get-max-result results)]
+  (let [max-result (or (get-max-result results) 1)]
     [:div {:class "max-w-md w-full"}
      [:ul {:class "w-full space-y-3"}
       (for [option options]
