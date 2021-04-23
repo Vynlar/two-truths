@@ -15,7 +15,7 @@
               ajax-post-fn ajax-get-or-ws-handshake-fn]}
       (sente/make-channel-socket! (get-sch-adapter)
                                   {:csrf-token-fn nil
-                                   :user-id-fn (fn [_] (java.util.UUID/randomUUID))})]
+                                   :user-id-fn (fn [_] (str (java.util.UUID/randomUUID)))})]
   (def ring-ajax-post ajax-post-fn)
   (def ring-ajax-get-or-ws-handshake ajax-get-or-ws-handshake-fn)
   (def ch-chsk ch-recv)
@@ -35,9 +35,56 @@
       wrap-session
       (wrap-resource "public")))
 
-
 (defstate cancel-ch
   :start (chan))
+
+(defstate vote-ch
+  "Push events onto this channel to vote.
+
+   Required keys: #{:room/id :user/id :choice}"
+  :start
+  (chan))
+
+(defstate broadcast-ch
+  :start
+  (chan))
+
+(defn broadcast! [uids payload]
+  (println "Broadcasting" payload "to" uids)
+  (doseq [uid uids]
+    (println "Sending to " uid payload)
+    (chsk-send! uid payload)))
+
+(defstate broadcast-processor
+  :start
+  (go-loop []
+    (alt!
+      cancel-ch :noop
+      broadcast-ch ([payload]
+                    (println "Broadcasting" payload)
+                    (broadcast! (db/get-members payload)
+                                [:room/result (db/get-results payload)])
+                    (recur)))))
+
+(defstate vote-processor
+  :start
+  (go-loop []
+    (alt!
+      cancel-ch :noop
+      vote-ch ([payload]
+               (println "Processing vote" payload)
+               (db/vote! payload)
+               (>! broadcast-ch payload)
+               (recur)))))
+
+(comment
+  (+ 2 3)
+
+  (go (>! vote-ch {:user/id "my-user" :room/id "auto-join" :choice "F"}))
+  (go (>! cancel-ch {}))
+
+  (go (println "kenny" (<! vote-ch))))
+
 
 (defstate event-processor
   :start
@@ -45,17 +92,24 @@
     (alt!
       cancel-ch :noop
       ch-chsk ([{:keys [event uid]}]
-               (println "Event received")
-               (let [[event-key event-payload] event]
+               (let [[event-key event-payload] event
+                     room-id (:room/id event-payload)]
+                 (println "Processing event: " event-key)
                  (case event-key
-                   :room/join (do
-                                (println "Processing" event-key)
-                                (db/join-room! {:room/id (:room/id event-payload)
-                                                :user/id uid}))
+                   :room/join
+                   (do
+                     (db/join-room! {:room/id room-id
+                                     :user/id uid})
+                     (>! broadcast-ch {:room/id room-id}))
 
-                   :chsk/uidport-open (do (println "go-loop :chsk/uidport-open" uid)
-                                          (db/add-user! {:user/id uid}))
 
+                   :room/vote
+                   (>! vote-ch {:user/id uid
+                                :room/id room-id
+                                :choice (:choice event-payload)})
+
+                   :chsk/uidport-open
+                   (db/add-user! {:user/id uid})
 
                    (println "Skipped: " event-key))
                  (recur))))))

@@ -1,67 +1,90 @@
 (ns app.db
-  (:require [mount.core :refer [defstate]]))
+  (:require [mount.core :refer [defstate]]
+            [datascript.core :as d]))
 
-(def initial-db {:room/id {}
-                 :user/id {}})
+(def schema
+  {:user/id {:db/unique :db.unique/identity}
+   :room/id {:db/unique :db.unique/identity}
+   :room/members {:db/type :db.type/ref
+                  :db/cardinality :db.cardinality/many}
+   :vote/room {:db/type :db.type/ref
+               :db/cardinality :db.cardinality/one}
+   :vote/user {:db/type :db.typf
+               :db/cardinality :db.cardinality/one}})
 
-(defn new-db []
-  (atom initial-db))
+(defstate conn 
+  :start (d/create-conn schema))
 
-(defstate db :start (new-db))
+(defn add-user! [{:keys [user/id]}]
+  (d/transact! conn [{:user/id id}]))
 
-(defn room-path
-  ([id] [:room/id id])
-  ([id field] [:room/id id field]))
-
-(defn user-path
-  ([id] [:user/id id])
-  ([id field] [:user/id id field]))
-
-(defn add-user* [state {:user/keys [id]}]
-  (println "add-user* " id)
-  (let [new-state (assoc-in state (user-path id) {:user/id id})]
-    new-state))
-
-(defn add-user! [payload]
-  (println "add-user! " payload)
-  (swap! db add-user* payload))
-
-(defn add-room*
-  ([state id]
-   (assoc-in state (room-path id) {:room/id id
-                                   :room/members #{}}))
-  ([state]
-   (let [id (str (java.util.UUID/randomUUID))]
-     (add-room* state id))))
-
-
-(defn join-room* [state payload]
-  (let [user-ident (user-path (:user/id payload))
-        room-ident (room-path (:room/id payload))
-        room-exists? (not (nil? (get-in state room-ident)))
-        members-path (room-path (:room/id payload) :room/members)]
-
-    (if room-exists?
-      (update-in state members-path
-                 conj user-ident)
-
-      (-> state
-          (add-room* (:room/id payload))
-          (assoc-in members-path #{user-ident})))))
+(defn add-room! []
+  (d/transact! conn [{:room/id (str (java.util.UUID/randomUUID))}]))
 
 (defn join-room! [payload]
-  (swap! db join-room* payload))
+  (let [room-id (:room/id payload)
+        user-id (:user/id payload)]
+    (d/transact! conn [{:room/id room-id
+                       :room/members [[:user/id user-id]]}])))
+
+(defn vote! [payload]
+  (let [room-id (:room/id payload)
+        user-id (:user/id payload)
+        choice (:choice payload)]
+    (d/transact! conn [{:db/id -1
+                       :vote/room [:room/id room-id]
+                       :vote/choice choice
+                       :vote/user [:user/id user-id]}])))
+
+(defn get-results [{:room/keys [id]}]
+  (vec
+   (d/q '[:find ?c (count ?uid)
+          :keys choice count
+          :in $ ?rid
+          :where
+          [?v :vote/room ?rid]
+          [?v :vote/choice ?c]
+          [?v :vote/user ?uid]]
+        @conn [:room/id id])))
+
+(defn get-members [{:room/keys [id]}]
+  (d/q '[:find [?uid ...]
+         :in $ ?rid
+         :where
+         [?r :room/id ?rid]
+         [?r :room/members ?u]
+         [?u :user/id ?uid]]
+       @conn id))
 
 (comment
-  (reset! db initial-db)
-  @db
+  @conn
 
-  (defn first-room-id* [state]
-    (first (keys (get-in state [:room/id]))))
+  (get-members {:room/id "auto-join"})
 
-  (swap! db (fn [s]
-              (-> s
-                  (add-room* "my-id"))))
+  (d/transact! conn [{:user/id "user-id"}
+                     {:room/id "room-id"
+                      :room/members [[:user/id "user-id"]]}])
 
-  (swap! db join-room* {:room/id "my-id"
-                        :user/id "my-uid-4"}))
+  (d/transact! conn [{:user/id "user-id-2"}])
+
+  (do
+    (add-room!)
+    (add-user! {:user/id "adrian"})
+    (add-user! {:user/id "jack"})
+    (def room-id (d/q '[:find ?rid .
+                        :where
+                        [?r :room/id ?rid]]
+                      @conn))
+    (join-room! {:room/id  room-id
+                 :user/id "adrian"})
+    (join-room! {:room/id  room-id
+                 :user/id "jack"}))
+
+    (vote! {:user/id "adrian" :room/id room-id :choice "C"})
+    (vote! {:user/id "jack" :room/id room-id :choice "A"})
+    (get-results {:room-id "auto-join"})
+
+  (d/q '[:find [(pull ?r [* {:room/members [*]}]) ...]
+         :where
+         [?r :room/id _]]
+       @conn))

@@ -4,3 +4,4 @@
 resources/public/js
 .lsp
 .nrepl-port
+node_modules/
