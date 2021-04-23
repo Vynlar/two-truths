@@ -36,7 +36,8 @@
         response
         (assoc-in response [:session] {:uid (str (java.util.UUID/randomUUID))})))))
 
-(def app
+(defstate middleware
+  :start
   (-> app-routes
       (wrap-resource "public")
       wrap-add-uid
