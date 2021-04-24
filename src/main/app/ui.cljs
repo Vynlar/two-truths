@@ -10,7 +10,7 @@
 
 (defn ui-results [results my-choice]
   (let [max-result (or (get-max-result results) 1)]
-    [:div {:class "max-w-md w-full"}
+    [:div {:class "px-4 max-w-md w-full"}
      [:ul {:class "w-full space-y-3"}
       (for [option options]
         (let [count (or (:count (first (filter
