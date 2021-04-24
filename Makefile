@@ -1,4 +1,4 @@
 uberjar:
 	npm install
-	npx shadow-cljs release app
+	clojure -A:dev:frontend release app
 	clojure -X:uberjar
