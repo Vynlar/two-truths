@@ -5,8 +5,8 @@
 
 (defstate http-server
   :start
-  (let [cfg {:port (or (System/getenv "PORT") 8080)}]
-    (println "starting server!")
+  (let [cfg {:port (or (Integer/parseInt (System/getenv "PORT")) 8080)}]
+    (println "starting server on port " (:port cfg))
     (http-kit/run-server middleware cfg))
   :stop
   (http-server))

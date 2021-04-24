@@ -12,5 +12,10 @@
                               thheller/shadow-cljs {:mvn/version "2.12.5"}
                               reagent/reagent {:mvn/version "1.0.0"}
                               org.clojure/tools.namespace {:mvn/version "1.1.0"}}}
-           :frontend {:main-opts ["-m" "shadow.cljs.devtools.cli" "watch" ":app"]}}}
+           :frontend {:main-opts ["-m" "shadow.cljs.devtools.cli" "watch" ":app"]}
+           :uberjar {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.0.216"}}
+                     :exec-fn hf.depstar/uberjar
+                     :exec-args {:aot true
+                                 :jar "target/truths.jar"
+                                 :main-class app.server-main}}}}
                               
