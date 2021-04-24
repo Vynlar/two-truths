@@ -1,5 +1,6 @@
 (ns app.ws-client
   (:require [taoensso.sente :as sente]
+            [app.utils :refer [get-room-name]]
             [clojure.core.async :refer [go-loop go chan >! <!]]))
 
 (let [{:keys [send-fn ch-recv]}
@@ -9,6 +10,7 @@
 
 (def result-ch (chan))
 (def user-state-ch (chan))
+
 
 (defn handle-user-state-reply [reply]
   (when (sente/cb-success? reply)
@@ -41,7 +43,7 @@
       :chsk/state (do
                     (js/console.log payload)
                     (if (:first-open? payload)
-                      (join "auto-join")
+                      (join (get-room-name))
                       (recur)))
 
       :chsk/recv (case event-key

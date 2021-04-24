@@ -1,6 +1,7 @@
 (ns app.ui
   (:require [reagent.core :as r]
             [clojure.core.async :refer [go-loop alt!]]
+            [app.utils :refer [get-room-name]]
             [app.ws-client :refer [result-ch user-state-ch vote clear-room]]))
 
 (def options ["A" "B" "C"])
@@ -38,7 +39,7 @@
      [:div {:class "flex justify-between items-center mt-3"}
       [:div {:class "text-gray-400 text-xs uppercase"} "★ your vote"]
       [:button {:class "uppercase font-bold text-gray-500 text-sm hover:text-red-500"
-                :on-click #(clear-room "auto-join")} "Reset"]]]))
+                :on-click #(clear-room (get-room-name))} "Reset"]]]))
 
 (defn ui-vote [{:keys [on-submit]}]
   [:div.space-y-2.text-gray-500
@@ -71,4 +72,4 @@
       (if (:submitted? @state)
         [ui-results (:result @state) (:choice @state)]
         [ui-vote {:on-submit #(do
-                                (vote "auto-join" %1))}]))]))
+                                (vote (get-room-name) %1))}]))]))
