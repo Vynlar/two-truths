@@ -6,6 +6,7 @@
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [clojure.core.async :refer [go go-loop <! <!! >! >!! chan alt!]]
             [ring.middleware.params :refer [wrap-params]]
+            [ring.util.response :refer [redirect]]
             [ring.middleware.session :refer [wrap-session]]
             [ring.middleware.resource :refer [wrap-resource]]
             [app.db :as db]
@@ -21,8 +22,13 @@
   (def chsk-send! send-fn)
   (def connected-uids connected-uids))
 
+(defn handle-new-room [req]
+  (let [room-id (db/add-room!)]
+    (redirect (str "/room/" room-id))))
+
 (defroutes app-routes
   (GET "/" [] "WOW")
+  (GET "/new" [] handle-new-room)
   (GET "/chsk" req (ring-ajax-get-or-ws-handshake req))
   (POST "/chsk" req (ring-ajax-post req))
   (route/not-found "not found!"))

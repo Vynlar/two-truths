@@ -19,7 +19,9 @@
   (d/transact! conn [{:user/id id}]))
 
 (defn add-room! []
-  (d/transact! conn [{:room/id (str (java.util.UUID/randomUUID))}]))
+  (let [room-id (str (java.util.UUID/randomUUID))]
+    (d/transact! conn [{:room/id room-id}])
+    room-id))
 
 (defn join-room! [payload]
   (let [room-id (:room/id payload)
