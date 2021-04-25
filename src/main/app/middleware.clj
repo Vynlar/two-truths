@@ -27,9 +27,9 @@
     (redirect (str "/room/" room-id))))
 
 (defroutes app-routes
-  (GET "/" [] "WOW")
+  (GET "/" [] (resource-response "public/home.html"))
   (GET "/new" [] handle-new-room)
-  (GET "/room/:room-id" [room-id]
+  (GET "/room/:room-id" [_]
     (resource-response "/public/index.html"))
   (GET "/chsk" req (ring-ajax-get-or-ws-handshake req))
   (POST "/chsk" req (ring-ajax-post req))
@@ -37,12 +37,13 @@
 
 (defn wrap-add-uid [handler]
   (fn [request]
-    (let [response (handler request)
-          old-uid (get-in request [:session :uid])]
+    (let [old-uid (get-in request [:session :uid])
+          new-uid (str (java.util.UUID/randomUUID))
+          uid (if old-uid old-uid new-uid)
+          _ (db/add-user! {:user/id uid})
+          response (handler (assoc-in request [:session :uid] uid))]
 
-      (if old-uid
-        response
-        (assoc-in response [:session] {:uid (str (java.util.UUID/randomUUID))})))))
+      (assoc-in response [:session] {:uid uid}))))
 
 (defstate middleware
   :start
@@ -123,11 +124,6 @@
                    (do
                      (db/clear-room {:room/id room-id})
                      (>! broadcast-ch {:room/id room-id}))
-
-
-
-                   :chsk/uidport-open
-                   (db/add-user! {:user/id uid})
 
                    (println "Skipped: " event-key))
                  (recur))))))
