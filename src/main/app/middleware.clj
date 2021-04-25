@@ -22,8 +22,8 @@
   (def chsk-send! send-fn)
   (def connected-uids connected-uids))
 
-(defn handle-new-room [req]
-  (let [room-id (db/add-room!)]
+(defn handle-new-room [{:keys [session]}]
+  (let [room-id (db/add-room! {:user/id (:uid session)})]
     (redirect (str "/room/" room-id))))
 
 (defroutes app-routes

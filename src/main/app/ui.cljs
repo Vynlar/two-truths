@@ -9,7 +9,7 @@
 (defn get-max-result [results]
   (apply max (map :count results)))
 
-(defn ui-results [results my-choice]
+(defn ui-results [results my-choice owner?]
   (let [max-result (or (get-max-result results) 1)]
     [:div {:class "px-4 max-w-md w-full"}
      [:ul {:class "w-full space-y-3"}
@@ -38,8 +38,8 @@
               [:span {:class "ml-2 z-10 relative"} "★"])]]))]
      [:div {:class "flex justify-between items-center mt-3"}
       [:div {:class "text-gray-400 text-xs uppercase"} "★ your vote"]
-      [:button {:class "uppercase font-bold text-gray-500 text-sm hover:text-red-500"
-                :on-click #(clear-room (get-room-name))} "Reset"]]]))
+      (when owner? [:button {:class "uppercase font-bold text-gray-500 text-sm hover:text-red-500"
+                             :on-click #(clear-room (get-room-name))} "Reset"])]]))
 
 (defn ui-vote [{:keys [on-submit]}]
   [:div.space-y-2.text-gray-500
@@ -70,6 +70,6 @@
     (if-not (:loaded? @state)
       [:div]
       (if (:submitted? @state)
-        [ui-results (:result @state) (:choice @state)]
+        [ui-results (:result @state) (:choice @state) (:owner? @state)]
         [ui-vote {:on-submit #(do
                                 (vote (get-room-name) %1))}]))]))

@@ -7,6 +7,8 @@
    :room/id {:db/unique :db.unique/identity}
    :room/members {:db/type :db.type/ref
                   :db/cardinality :db.cardinality/many}
+   :room/owner {:db/type :db.type/ref
+                :db/cardinality :db.cardinality/one}
    :vote/room {:db/type :db.type/ref
                :db/cardinality :db.cardinality/one}
    :vote/user {:db/type :db.type/ref
@@ -18,9 +20,10 @@
 (defn add-user! [{:keys [user/id]}]
   (d/transact! conn [{:user/id id}]))
 
-(defn add-room! []
+(defn add-room! [{:keys [user/id]}]
   (let [room-id (str (java.util.UUID/randomUUID))]
-    (d/transact! conn [{:room/id room-id}])
+    (d/transact! conn [{:room/id room-id
+                        :room/owner [:user/id id]}])
     room-id))
 
 (defn join-room! [payload]
@@ -61,6 +64,13 @@
 (defn get-user-state [payload]
   (let [room-id (:room/id payload)
         user-id (:user/id payload)
+        owner-id (d/q '[:find ?uid .
+                        :in $ ?rid
+                        :where
+                        [?r :room/id ?rid]
+                        [?r :room/owner ?u]
+                        [?u :user/id ?uid]]
+                      @conn room-id)
         choice (d/q '[:find ?c .
                       :in $ ?uid ?rid
                       :where
@@ -71,7 +81,8 @@
                       [?v :vote/choice ?c]]
                     @conn user-id room-id)]
     {:choice choice
-     :submitted? (not (nil? choice))}))
+     :submitted? (not (nil? choice))
+     :owner? (= user-id owner-id)}))
 
 (defn clear-room [{:room/keys [id]}]
   (let [vote-ids (d/q '[:find [?v ...]
