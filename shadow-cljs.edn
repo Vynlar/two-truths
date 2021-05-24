@@ -1,6 +1,7 @@
 {:deps {:aliases [:dev :frontend]}
  :builds {:app {:target :browser
                 :output-dir "resources/public/js"
+                :module-hash-names true
                 :modules {:main {:init-fn app.client/init}}
                 :devtools {:preloads [devtools.preload]
                            :http-root "resources/public"

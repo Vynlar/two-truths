@@ -5,10 +5,12 @@
             [mount.core :refer [defstate]]
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [clojure.core.async :refer [go go-loop <! <!! >! >!! chan alt!]]
+            [clojure.java.io :as io]
             [ring.middleware.params :refer [wrap-params]]
-            [ring.util.response :refer [redirect resource-response]]
+            [ring.util.response :refer [redirect response resource-response]]
             [ring.middleware.session :refer [wrap-session]]
             [ring.middleware.resource :refer [wrap-resource]]
+            [hiccup.core :refer [html]]
             [app.db :as db]
             [taoensso.sente.server-adapters.http-kit :refer (get-sch-adapter)]))
 
@@ -26,11 +28,49 @@
   (let [room-id (db/add-room! {:user/id (:uid session)})]
     (redirect (str "/room/" room-id))))
 
+
+(def manifest-file (io/resource "public/js/manifest.edn"))
+
+(defstate cljs-manifest
+  :start (read-string (slurp manifest-file)))
+
+(defn find-manifest-entry [name]
+  (first (filter #(= (:name %) name) cljs-manifest)))
+
+(defn get-module-output-name [name]
+  (str "/js/" (:output-name (find-manifest-entry name))))
+
+(comment
+  (get-module-output-name :main))
+
+(defn room-html []
+  [:html
+   {:lang "en"}
+   [:head
+    [:meta {:charset "UTF-8"}]
+    [:meta {:content "IE=edge", :http-equiv "X-UA-Compatible"}]
+    [:meta
+     {:content "width=device-width, initial-scale=1.0"
+      :name "viewport"}]
+    [:link
+     {:rel "stylesheet"
+      :href "https://unpkg.com/tailwindcss@^2/dist/tailwind.min.css"}]
+    [:script
+     {:src "https://plausible.aleixandre.dev/js/plausible.js"
+      :data-domain "truths.aleixandre.dev"
+      :defer "defer"
+      :async "async"}]
+    [:title "2 Truths"]]
+   [:body [:div#root] [:script {:src (get-module-output-name :main)}]]])
+
+(defn room-response []
+  (response (html (room-html))))
+
 (defroutes app-routes
   (GET "/" [] (resource-response "public/home.html"))
   (GET "/new" [] handle-new-room)
   (GET "/room/:room-id" [_]
-    (resource-response "/public/index.html"))
+    (room-response))
   (GET "/chsk" req (ring-ajax-get-or-ws-handshake req))
   (POST "/chsk" req (ring-ajax-post req))
   (route/not-found "not found!"))
