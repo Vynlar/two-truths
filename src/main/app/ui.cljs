@@ -4,7 +4,7 @@
             [app.utils :refer [get-room-name]]
             [app.ws-client :refer [result-ch user-state-ch vote clear-room]]))
 
-(def options ["A" "B" "C"])
+(def options ["1" "2" "3"])
 
 (defn get-max-result [results]
   (apply max (map :count results)))
@@ -12,7 +12,7 @@
 (defn ui-results [results my-choice owner?]
   (let [max-result (or (get-max-result results) 1)]
     [:div {:class "px-4 max-w-md w-full"}
-     [:ul {:class "w-full space-y-3"}
+     [:ul {:class "w-full space-y-6"}
       (for [option options]
         (let [count (or (:count (first (filter
                                         (fn [result] (= (:choice result) option))
@@ -20,22 +20,24 @@
                         0)
               percent (* 100 (/ count max-result))]
           ^{:key option}
-          [:li {:class "relative w-full bg-white h-12 flex items-center
-                          px-4 text-white font-bold rounded-lg overflow-hidden shadow-lg"}
-           [:div {:class "absolute bg-gradient-to-r from-pink-600 to-pink-500 flex items-center
-                            h-full w-full top-0 left-0 z-20 transition-all duration-500 px-4"
-                  :style {:clip-path (str "polygon(0% 0%, " percent "% 0%, " percent "% 100%, 0% 100%)")}}
-            [:span {:class "absolute z-30"}
-             [:span  (str option)]
-             [:span {:class "z-10 ml-2 opacity-70"} (str count)]
-             (when (= my-choice option)
-               [:span {:class "ml-2 relative"} "★"])]]
+          [:div {:class "relative"}
+           [:div {:class "absolute z-30 -left-2 -top-2 text-pink-500 font-bold w-6 h-6
+                          shadow ring-2 ring-pink-500
+                          bg-white flex items-center justify-center rounded-full"} option]
+           [:li {:class "relative w-full bg-white h-12 flex items-center
+                          px-6 text-white font-bold rounded-lg overflow-hidden shadow-lg"}
+            [:div {:class "absolute bg-gradient-to-r from-pink-600 to-pink-500 flex items-center
+                            h-full w-full top-0 left-0 z-20 transition-all duration-500 px-6"
+                   :style {:clip-path (str "polygon(0% 0%, " percent "% 0%, " percent "% 100%, 0% 100%)")}}
+             [:span {:class "absolute z-30"}
+              [:span {:class "z-10 opacity-70"} (str count)]
+              (when (= my-choice option)
+                [:span {:class "ml-2 relative"} "★"])]]
 
-           [:span {:class "absolute z-10 text-black"}
-            [:span  (str option)]
-            [:span {:class "z-10 ml-2 opacity-70"} (str count)]
-            (when (= my-choice option)
-              [:span {:class "ml-2 z-10 relative"} "★"])]]))]
+            [:span {:class "absolute z-10 text-black"}
+             [:span {:class "z-10 opacity-70"} (str count)]
+             (when (= my-choice option)
+               [:span {:class "ml-2 z-10 relative"} "★"])]]]))]
      [:div {:class "flex justify-between items-center mt-3"}
       [:div {:class "text-gray-400 text-xs uppercase"} "★ your vote"]
       (when owner? [:button {:class "uppercase font-bold text-gray-500 text-sm hover:text-red-500"
@@ -67,9 +69,9 @@
 
   (fn []
     [:div {:class "flex min-h-screen items-center justify-center bg-gradient-to-b from-pink-100 via-white to-purple-100"}
-    (if-not (:loaded? @state)
-      [:div]
-      (if (:submitted? @state)
-        [ui-results (:result @state) (:choice @state) (:owner? @state)]
-        [ui-vote {:on-submit #(do
-                                (vote (get-room-name) %1))}]))]))
+     (if-not (:loaded? @state)
+       [:div]
+       (if (:submitted? @state)
+         [ui-results (:result @state) (:choice @state) (:owner? @state)]
+         [ui-vote {:on-submit #(do
+                                 (vote (get-room-name) %1))}]))]))
