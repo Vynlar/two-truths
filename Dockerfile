@@ -18,7 +18,7 @@ RUN clojure -A:dev:shadow-cljs release app
 RUN clojure -X:uberjar
 
 # Stage 2: Run the application
-FROM openjdk:22-slim
+FROM eclipse-temurin:22-jre
 
 # Copy the jar file from the builder stage
 COPY --from=builder /app/target/truths.jar /app/truths.jar
